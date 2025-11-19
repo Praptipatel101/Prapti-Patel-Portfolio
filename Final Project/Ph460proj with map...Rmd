@@ -1,0 +1,196 @@
+---
+title: "Final: Individual Project"
+date: "2024-11-13"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    code_folding: hide
+---
+
+```{r echo = FALSE, warning= FALSE, message=FALSE}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+
+car_occupants_injured <- read_delim("Car.txt", delim = "\t", quote = '"')
+motorcycle_occupants_injured <- read_delim("Motorcycle.txt", delim = "\t", quote = '"')
+truck_van_occupants_injured <- read_delim("statetruckvan.txt", delim = "\t", quote = '"')
+```
+
+### Introduction:
+Motor vehicle collisions result in numerous injuries and fatalities across the United States. Understanding regional variations in these fatalities is essential for identifying trends, causes, and potential interventions. In this analysis, I focused on examining how vehicle type, state, region, and demographic factors such as gender and race influence motor vehicle death rates across the United States. My primary focus was on the four major U.S. census regions: the South, Midwest, Northeast, and West and specifically focusing on the Midwest. By analyzing trends over time and considering demographic factors, I aimed to uncover patterns that could help explain why certain regions, vehicle types, or demographic groups experience higher fatality rates. Ultimately, this investigation seeks to provide insights into the factors driving motor vehicle deaths, with the goal of improving public health outcomes through better-targeted safety measures.
+
+```{r}
+car_occupants_injured <- car_occupants_injured %>%
+  separate('Census Region', c("Extra", "Census Region"), sep = ":\\s*") %>%
+  select(-Notes, -`Census Region Code`, -`Year Code`, -`State Code`, -`Crude Rate`, -`Race Code`, -`Gender Code`) %>%
+  drop_na() %>%
+  filter(
+    Deaths != "Suppressed"
+  ) %>%
+  mutate(
+    Deaths = as.numeric(Deaths),
+    rate = (Deaths / Population) * 100000
+  )
+
+```
+
+```{r}
+motorcycle_occupants_injured <- motorcycle_occupants_injured %>%
+  separate('Census Region', c("Extra", "Census Region"), sep = ":\\s*") %>%
+    select(-Notes, -`Census Region Code`, -`Year Code`, -`State Code`, -`Crude Rate`, -`Race Code`, -`Gender Code`) %>%
+  drop_na() %>%
+  filter(
+    Deaths != "Suppressed"
+  ) %>%
+  mutate(
+    Deaths = as.numeric(Deaths),
+    rate = (Deaths / Population) * 100000
+  )
+
+```
+
+
+```{r}
+truck_van_occupants_injured <- truck_van_occupants_injured %>%
+  separate('Census Region', c("Extra", "Census Region"), sep = ":\\s*") %>%
+   select(-Notes, -`Census Region Code`, -`Year Code`, -`State Code`, -`Crude Rate`, -`Race Code`, -`Gender Code`) %>%
+  drop_na() %>%
+  filter(
+    Deaths != "Suppressed"
+  ) %>%
+  mutate(
+    Deaths = as.numeric(Deaths),
+    rate = (Deaths / Population) * 100000)
+```
+
+```{r}
+combined_data <- car_occupants_injured %>%
+  mutate(Vehicle = "Car") %>%
+  select(Census.Region = `Census Region`, State, Year, Deaths, Population, rate, Vehicle,Gender,Race) %>%
+  bind_rows(
+    motorcycle_occupants_injured %>%
+      mutate(Vehicle = "Motorcycle") %>%
+      select(Census.Region = `Census Region`, State, Year, Deaths, Population, rate, Vehicle,Gender,Race),
+    truck_van_occupants_injured %>%
+      mutate(Vehicle = "Truck/Van") %>%
+      select(Census.Region = `Census Region`, State, Year, Deaths, Population, rate, Vehicle,Gender,Race))
+```
+
+### Data: 
+The data used in this analysis was sourced from the CDC Wonder Database, which provides detailed information on injuries and deaths from transport accidents. For this analysis, I focused on datasets related to three major vehicle types: Car Occupant Injured in Transport Accident (V40-V49), Motorcycle Rider Injured in Transport Accident (V20-V29), and Occupant of Pickup Truck or Van Injured in Transport Accident (V50-V59). The datasets were organized by state, census region, year, gender, and race, allowing for an expansive exploration of motor vehicle fatality trends.
+
+I included additional variables such as the number of Deaths, Population, and Crude Rate for each region and vehicle type. Since some of the original values were unreliable, I recalculated the crude rate by dividing deaths by population and multiplying the result by 100,000. This ensured a consistent and accurate measurement across the datasets, making the analysis more reliable and easier to compare between regions and groups.
+
+### Table 1: Stacked Bar Graph of Death Rates Across Regions by Year
+The stacked bar graph illustrates motor vehicle death rates across the four U.S. census regions over time. It is evident that the Northeast consistently has the lowest death rates each year, while regions like the Midwest, West, and South exhibit higher death rates. Notably, the Midwest has the highest death rates, a trend that persists throughout the analysis period. The graph also highlights a general decline in all death rates across all regions from 1999 to 2020. This decline could reflect improvements in road safety, vehicle safety features, or changes in driving behavior, such as lower speeds or safer driving practices.
+
+The consistently high death rates in the Midwest could be attributed to several factors, including road infrastructure, the prevalence of rural driving, and less stringent vehicle safety regulations. Additionally, the driving culture in the Midwest, where longer distances between destinations often require travel on highways and rural roads, may also contribute to the elevated fatality rates.
+
+```{r}
+region_deaths_data_rate <- combined_data %>%    
+  group_by(Year, Census.Region, Vehicle) %>%    
+  summarise(Average_Rate = mean(rate, na.rm = TRUE), .groups = "drop") 
+
+ggplot(region_deaths_data_rate, aes(x = Year, y = Average_Rate, fill = Census.Region)) +    
+  geom_bar(stat = "identity", position = "stack") +    
+  labs(     
+    title = "Stacked Bar Graph of Death Rates Across Regions by Year",     
+    x = "Year",     y = "Average Death Rate (per 100,000)",     
+    fill = "Region") +    
+  scale_fill_manual(values = c("#7300bf", "#4bbf00", "#00abbf", "#ff6347")) + 
+  theme_minimal() +    
+  theme(    
+    plot.title = element_text(face = "bold", size = 16),     
+    axis.text.x = element_text(angle = 45, hjust = 1),     
+    legend.position = "top",     
+    legend.title = element_text(size = 12),     
+    legend.text = element_text(size = 10))
+```
+### Table 2: Stacked Bar Graph of Death Rates in the Midwest by Year
+The second stacked bar graph focuses specifically on the Midwest and provides a more detailed look at how different vehicle types contribute to the overall death rate over time. Cars consistently account for the highest proportion of traffic fatalities in the Midwest, which is consistent with national trends. However, it is notable that there has been a significant decline in truck/van deaths from 1999 to 2020. This could be attributed to improvements in vehicle safety standards, such as better crashworthiness of trucks and vans, as well as changes in driving behavior and regulations.
+
+Motorcycle deaths remained relatively stable from 1999 to 2019, but there was a noticeable increase in fatalities in 2020. This uptick could be due to a variety of factors, including the impact of the COVID-19 pandemic, which may have led to more people taking to the roads, or it could be related to a higher number of motorcycle riders during this period.
+
+
+```{r}
+midwest_deaths_data_rate <- combined_data %>%
+  filter(`Census.Region` == "Midwest") %>%
+  group_by(Year, Vehicle) %>%
+  summarise(Average_Rate = mean(rate, na.rm = TRUE), .groups = "drop")
+ggplot(midwest_deaths_data_rate, aes(x = Year, y = Average_Rate, fill = Vehicle)) + 
+  geom_bar(stat = "identity", position = "stack") + 
+  labs(
+    title = "Stacked Bar Graph of Death Rates in the Midwest by Year",
+    x = "Year",
+    y = "Average Death Rate (per 100,000)",
+    fill = "Vehicle Type") + 
+  scale_fill_manual(values = c("#7300bf", "#4bbf00", "#00abbf")) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top",
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10))
+```
+### Table 3: Average Death Rates by Gender and Race in the Midwest
+This analysis focuses on how gender and race influence motor vehicle death rates in the Midwest. The stacked bar graph reveals clear disparities, particularly the fact that men experience much higher death rates than women, which aligns with broader trends in traffic fatalities. It is well-established that men are more likely to engage in riskier driving behaviors, such as speeding, driving under the influence, or not wearing seat belts, which may explain this disparity.
+
+Racial disparities in motor vehicle death rates are also significant. White Americans in the Midwest tend to experience higher death rates than other racial groups. While this could be attributed to the higher proportion of White Americans in the region, other contributing factors such as socioeconomic conditions, access to healthcare, and driving behaviors may also play a role. 
+
+
+```{r}
+midwest_deaths_data_genderrace <- combined_data %>%   filter(Census.Region == "Midwest") %>%   
+  group_by(Gender, Race) %>%   
+  summarise(Average_Rate = mean(rate, na.rm = TRUE), .groups = "drop") 
+
+ggplot(midwest_deaths_data_genderrace, aes(x = Gender, y =Average_Rate, fill = Race)) +   
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +   
+  labs( title = "Average Death Rates by Gender and Race in the Midwest",     
+        x = "Gender",     
+        y = "Average Death Rate (per 100,000)") +   
+  scale_fill_manual(values = c("#7300bf", "#4bbf00", "#00abbf", "#bf1400")) +    
+  theme_minimal() +   
+  theme(     
+    plot.title = element_text(face = "bold", size = 16),     
+    plot.subtitle = element_text(size = 13),     
+    axis.text.x = element_text(size = 12),     
+    axis.text.y = element_text(size = 12),     
+    legend.position = "right") 
+```
+
+### Table 4: Pie Graph for Deaths by Race for Car Fatalities in the Midwest
+The pie chart illustrating deaths by race for car-related fatalities in the Midwest reveals notable disparities in the distribution of traffic-related deaths among different racial groups. From the chart, it is clear that White Americans make up the largest proportion of car-related fatalities, which is consistent with their larger representation in the population of the Midwest.
+
+```{r}
+race_vehicle_summary <- combined_data %>%   
+  filter(Vehicle == "Car") %>%  
+  group_by(Race, Vehicle) %>%   
+  summarise(Total_Deaths = sum(Deaths, na.rm = TRUE), .groups = "drop")
+ggplot(race_vehicle_summary, aes(x = "", y = Total_Deaths, fill = Race)) +   
+  geom_bar(stat = "identity", width = 1, color = "white") +   
+  coord_polar("y", start = 0) +   
+  labs(     
+    title = "Deaths by Race for Car in the Midwest",     
+    fill = "Race"   ) +   
+  scale_fill_manual(values = c("#bf1400", "#7300bf", "#4bbf00", "#00abbf")) +  # Customize colors
+  theme_minimal() +   
+  theme(     
+    axis.title.x = element_blank(),     
+    axis.title.y = element_blank(),     
+    axis.text = element_blank(),     
+    panel.grid = element_blank(),     
+    plot.title = element_text(face = "bold", size = 16),     
+    plot.subtitle = element_text(size = 13),     
+    legend.position = "bottom"   )
+```
+
+### Conclusion:
+
+This analysis reveals significant trends in motor vehicle death rates across the United States, highlighting regional, vehicle-specific, and demographic disparities. The Midwest consistently experiences the highest fatality rates, likely due to factors such as rural driving, road infrastructure, and a driving culture that emphasizes long highway trips. While overall death rates have declined over time, motorcycle fatalities saw a concerning rise in 2020, possibly linked to the COVID-19 pandemic.
+
+Gender and racial disparities are also evident, with men having higher death rates and White Americans representing a larger share of fatalities. These disparities point to the need for targeted interventions, particularly for motorcycle safety and addressing social determinants that influence driving behavior and access to healthcare.
+
+In summary, while improvements in road safety and vehicle features have contributed to a reduction in fatalities, further efforts are needed to address regional and demographic disparities. Focused interventions can help reduce these fatality rates and improve public health outcomes.
